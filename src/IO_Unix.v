@@ -20,11 +20,53 @@ Module OUnix.
 (** The abstract type of file descriptors. *)
 Parameter file_descr : Set.
 
+Parameter stderr : file_descr.
+
 Parameter file_descr_eqb : file_descr -> file_descr -> bool.
 
 (** Close a file descriptor. *)
 Parameter close : file_descr -> IO unit.
 
+(*read fd buf pos len reads len bytes from descriptor fd, storing them in byte sequence buf,
+   starting at position pos in buf. Return the number of bytes actually read.*)
+Parameter read : file_descr -> bytes -> int -> int -> int.
+
+(*write fd buf pos len writes len bytes to descriptor fd, taking them from byte sequence buf,
+   starting at position pos in buff. Return the number of bytes actually written.
+   write repeats the writing operation until all bytes have been written or an error occurs.*)
+Parameter write : file_descr -> bytes -> int -> int -> int.
+
+Variant open_flag : Type :=
+  | O_RDONLY  							 (* Open for reading *)
+  | O_WRONLY								 (* Open for writing *)
+  | O_RDWR								 (* Open for reading and writing *)
+  | O_NONBLOCK								 (* Open in non-blocking mode *)
+  | O_APPEND								 (* Open for append *)
+  | O_CREAT								 (* Create if nonexistent *)
+  | O_TRUNC								 (* Truncate to 0 length if existing *)
+  | O_EXCL								 (* Fail if existing *)
+  | O_NOCTTY								 (* Don't make this dev a controlling tty *)
+  | O_DSYNC								 (* Writes complete as `Synchronised I/O data integrity completion` *)
+  | O_SYNC								 (* Writes complete as `Synchronised I/O file integrity completion` *)
+  | O_RSYNC								 (* Reads complete as writes (depending on O_SYNC/O_DSYNC) *)
+  | O_SHARE_DELETE								 (* Windows only: allow the file to be deleted while still open *)
+  | O_CLOEXEC								 (* Set the close-on-exec flag on the descriptor returned by Unix.openfile. See Unix.set_close_on_exec for more information. *)
+  | O_KEEPEXEC								 (* Clear the close-on-exec flag. This is currently the default. *).
+
+(*Open the named file with the given flags. Third argument is 
+   the permissions to give to the file if it is created (see Unix.umask).
+   Return a file descriptor on the named file.*)
+Parameter openfile : ocaml_string -> list open_flag -> int -> file_descr.
+
+(** ** Seeking and Truncating *)
+
+Variant seek_command :=
+| SEEK_SET                          (** indicates positions relative to the beginning of the file*)
+| SEEK_CUR                       (** indicates positions relative to the current position *)
+| SEEK_END.                     (** indicates positions relative to the end of the file *)
+
+(*Set the current position for a file descriptor, and return the resulting offset (from the beginning of the file).*)
+Parameter lseek : file_descr -> int -> seek_command -> int.
 (** ** Polling  *)
 (** Wait until some input/output operations become possible on some channels.
    The three list arguments are, respectively, a set of descriptors to check for
@@ -297,7 +339,7 @@ Parameter raise_error : forall {a}, error -> ocaml_string -> ocaml_string -> IO 
 
 (* begin hide *)
 Extract Inlined Constant file_descr         => "Unix.file_descr".
-Extract Inlined Constant file_descr_eqb     => "(=)".
+Extract Inlined Constant stderr             => "Unix.stderr".
 Extract Inlined Constant inet_addr          => "Unix.inet_addr".
 Extract Inlined Constant inet_addr_any      => "Unix.inet_addr_any".
 Extract Inlined Constant inet_addr_loopback => "Unix.inet_addr_loopback".
@@ -333,6 +375,10 @@ Extract Inductive socket_float_option => "Unix.socket_float_option"
                                        ["Unix.SO_RCVTIMEO"
                                         "Unix.SO_SNDTIMEO"].
 
+Extract Constant openfile => "fun n f p     k -> k (Unix.openfile (from_ostring n) f p)".
+Extract Constant lseek  => "fun f i s       k -> k (Unix.lseek f i s)".
+Extract Constant write => "fun f b p l      k -> k (Unix.write f b p l)".
+Extract Constant read => "fun f b p l       k -> k (Unix.read f b p l)".
 Extract Constant close  => "fun f           k -> k (Unix.close f)".
 Extract Constant time   => "fun             k -> k (Unix.time ())".
 Extract Constant gettimeofday => "fun       k -> k (Unix.gettimeofday ())".
